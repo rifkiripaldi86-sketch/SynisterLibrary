@@ -14,7 +14,6 @@
                class="fctrl" style="padding-left:32px;">
     </div>
 
-    {{-- ✅ FIX: pakai category_id dan data dari tabel categories --}}
     <select name="category_id" class="fctrl" style="width:160px;">
         <option value="">Semua Kategori</option>
         @foreach($kategori as $k)
@@ -55,41 +54,41 @@
 <div class="row g-3">
     @foreach($buku as $b)
     <div class="col-6 col-md-4 col-xl-3">
-        <div class="book-card">
-            <div class="book-cover">
-                @if($b->cover_image)
-                    {{-- ✅ FIX: pakai asset() lebih aman daripada Storage::url() di Blade --}}
-                    <img src="{{ Storage::url($b->cover_image) }}" alt="{{ $b->judul_buku }}">
-                @else
-                    <i class="bi bi-book-half"></i>
+        <a href="{{ route('siswa.buku.show', $b->id) }}" class="text-decoration-none" style="display:block;">
+            <div class="book-card">
+                <div class="book-cover">
+                    @if($b->cover_image && \Storage::disk('public')->exists($b->cover_image))
+                        <img src="{{ \Storage::url($b->cover_image) }}" alt="{{ $b->judul_buku }}">
+                    @else
+                        <i class="bi bi-book-half"></i>
+                    @endif
+                </div>
+                <div class="book-title">{{ $b->judul_buku }}</div>
+                <div class="book-author">{{ $b->penulis }}</div>
+
+                @if($b->category)
+                    <div class="mt-1">
+                        <span class="bd bd-a" style="font-size:.68rem;background:{{ $b->category->warna }}20;color:{{ $b->category->warna }};">
+                            {{ $b->category->nama }}
+                        </span>
+                    </div>
                 @endif
-            </div>
-            <div class="book-title">{{ $b->judul_buku }}</div>
-            <div class="book-author">{{ $b->penulis }}</div>
 
-            {{-- ✅ FIX: pakai relasi category, bukan kolom 'kategori' yang sudah dihapus --}}
-            @if($b->category)
-                <div class="mt-1">
-                    <span class="bd bd-a" style="font-size:.68rem;background:{{ $b->category->warna }}20;color:{{ $b->category->warna }};">
-                        {{ $b->category->nama }}
+                @if($b->deskripsi)
+                    <div style="font-size:.76rem;color:var(--muted);margin-top:8px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
+                        {{ $b->deskripsi }}
+                    </div>
+                @endif
+
+                <div class="book-meta">
+                    <span class="{{ $b->stok > 0 ? 'stok-ok' : 'stok-no' }}">
+                        <i class="bi bi-circle-fill" style="font-size:.45rem;vertical-align:middle;margin-right:3px;"></i>
+                        {{ $b->stok > 0 ? $b->stok . ' tersedia' : 'Habis' }}
                     </span>
+                    <span style="font-size:.74rem;color:var(--muted);">{{ $b->tahun_terbit }}</span>
                 </div>
-            @endif
-
-            @if($b->deskripsi)
-                <div style="font-size:.76rem;color:var(--muted);margin-top:8px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
-                    {{ $b->deskripsi }}
-                </div>
-            @endif
-
-            <div class="book-meta">
-                <span class="{{ $b->stok > 0 ? 'stok-ok' : 'stok-no' }}">
-                    <i class="bi bi-circle-fill" style="font-size:.45rem;vertical-align:middle;margin-right:3px;"></i>
-                    {{ $b->stok > 0 ? $b->stok . ' tersedia' : 'Habis' }}
-                </span>
-                <span style="font-size:.74rem;color:var(--muted);">{{ $b->tahun_terbit }}</span>
             </div>
-        </div>
+        </a>
     </div>
     @endforeach
 </div>
@@ -97,3 +96,36 @@
 @endif
 
 @endsection
+
+@push('styles')
+<style>
+    .text-decoration-none {
+        text-decoration: none;
+    }
+    .book-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        height: 100%;
+    }
+    .book-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
+    .book-cover {
+        aspect-ratio: 2 / 3;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0a0a0a;
+    }
+    .book-cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .book-cover i {
+        font-size: 3rem;
+        color: var(--ash-dk);
+    }
+</style>
+@endpush

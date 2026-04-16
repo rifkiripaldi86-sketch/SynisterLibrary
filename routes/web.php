@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Siswa\DashboardController  as SiswaDashboardController;
 use App\Http\Controllers\Siswa\PeminjamanController;
+use App\Http\Controllers\Siswa\KatalogController;
 
 // ─────────────────────────────────────────────
 // 1. Landing
@@ -72,12 +73,17 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 Route::middleware(['auth', 'role:siswa'])->prefix('siswa')->name('siswa.')->group(function () {
 
     Route::get('/dashboard', [SiswaDashboardController::class, 'index'])->name('dashboard');
-    Route::get('/katalog',   [SiswaDashboardController::class, 'katalog'])->name('katalog');
 
+    // Katalog & detail buku
+    Route::get('/katalog', [KatalogController::class, 'index'])->name('katalog');
+    Route::get('/buku/{buku}', [KatalogController::class, 'show'])->name('buku.show');
+
+    // Peminjaman
     Route::get('/peminjaman',  [PeminjamanController::class, 'createPeminjaman'])->name('peminjaman.create');
     Route::post('/peminjaman', [PeminjamanController::class, 'storePeminjaman'])->name('peminjaman.store');
 
-    // Route::get('/pengembalian',              [PeminjamanController::class, 'createPengembalian'])->name('pengembalian.create');
+    // Pengembalian (jika diaktifkan nanti)
+    // Route::get('/pengembalian', [PeminjamanController::class, 'createPengembalian'])->name('pengembalian.create');
     // Route::post('/pengembalian/{transaksi}', [PeminjamanController::class, 'storePengembalian'])->name('pengembalian.store');
 
     Route::get('/riwayat', [PeminjamanController::class, 'riwayat'])->name('riwayat');
