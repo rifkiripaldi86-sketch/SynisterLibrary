@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers\Admin;
 
-// FILE: app/Http/Controllers/Admin/TransactionController.php
-
 use App\Http\Controllers\Controller;
 use App\Models\Book;
 use App\Models\Transaction;
@@ -46,11 +44,25 @@ class TransactionController extends Controller
 
     /**
      * Form catat peminjaman baru (oleh admin) - bisa pilih banyak buku.
+     * Mendukung pencarian buku via parameter 'search' (ID, judul, penulis).
      */
-    public function create()
+    public function create(Request $request)
     {
         $anggota = User::where('role', 'siswa')->orderBy('name')->get();
-        $buku    = Book::where('stok', '>', 0)->orderBy('judul_buku')->get();
+
+        // Query buku dengan stok > 0, bisa difilter berdasarkan pencarian
+        $bookQuery = Book::where('stok', '>', 0)->orderBy('judul_buku');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $bookQuery->where(function ($q) use ($search) {
+                $q->where('judul_buku', 'like', "%{$search}%")
+                  ->orWhere('penulis', 'like', "%{$search}%")
+                  ->orWhere('id', $search);  // pencarian berdasarkan ID buku
+            });
+        }
+
+        $buku = $bookQuery->get();
 
         return view('admin.transaksi.create', compact('anggota', 'buku'));
     }

@@ -3,8 +3,43 @@
 @section('title', 'Catat Peminjaman — Synister Library')
 @section('page-title', 'Catat Peminjaman')
 
-@section('content')
+{{-- Tambahkan push styles untuk CSS Select2 --}}
+@push('styles')
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    /* Penyesuaian UI Select2 agar senada dengan form control */
+    .select2-container .select2-selection--multiple {
+        min-height: 42px;
+        border: 1px solid #ced4da; /* Sesuaikan dengan border .fctrl Anda */
+        border-radius: 6px;
+        padding: 4px;
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice {
+        background-color: var(--amber, #C9A84C);
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        padding: 2px 8px;
+        margin-top: 4px;
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+        color: #fff;
+        margin-right: 6px;
+        border-right: 1px solid rgba(255,255,255,0.3);
+        padding-right: 6px;
+    }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
+        background-color: transparent;
+        color: #ffd700;
+    }
+    /* Memastikan input pencarian membentang penuh */
+    .select2-search__field {
+        width: 100% !important;
+    }
+</style>
+@endpush
 
+@section('content')
 <div class="d-flex align-items-center gap-3 mb-4">
     <a href="{{ route('admin.transaksi.index') }}" class="btn-G"><i class="bi bi-arrow-left"></i> Kembali</a>
 </div>
@@ -14,12 +49,12 @@
         <div class="card-d">
             <div class="cd-head"><i class="bi bi-plus-circle me-2" style="color:var(--amber)"></i>Form Peminjaman Buku (Maksimal 3 Buku)</div>
             <div class="cd-body">
-                <form action="{{ route('admin.transaksi.store') }}" method="POST">
+                <form action="{{ route('admin.transaksi.store') }}" method="POST" id="pinjamForm">
                     @csrf
                     <div class="row g-3">
                         <div class="col-12">
-                            <label class="flbl">Anggota / Peminjam <span style="color:var(--red)">*</span></label>
-                            <select name="user_id" class="fctrl" id="user_id">
+                            <label class="flbl">Anggota / Peminjam <span class="text-danger">*</span></label>
+                            <select name="user_id" class="fctrl" id="user_id" required>
                                 <option value="">-- Pilih Anggota --</option>
                                 @foreach($anggota as $a)
                                     <option value="{{ $a->id }}" {{ old('user_id') == $a->id ? 'selected' : '' }}>
@@ -31,45 +66,46 @@
                         </div>
 
                         <div class="col-12">
-                            <label class="flbl">Pilih Buku (bisa pilih lebih dari 1, maksimal 3 buku total pinjaman aktif) <span style="color:var(--red)">*</span></label>
-                            <select name="book_ids[]" class="fctrl" multiple size="8" id="book_ids" style="height: auto; min-height: 200px;">
+                            <label class="flbl">Pilih Buku (Ketik judul buku, bisa lebih dari 1) <span class="text-danger">*</span></label>
+
+                            <select name="book_ids[]" id="book_ids" class="fctrl" multiple="multiple" style="width:100%" required>
                                 @foreach($buku as $b)
                                     <option value="{{ $b->id }}"
-                                        {{ (old('book_ids') && in_array($b->id, old('book_ids'))) ? 'selected' : '' }}>
-                                        {{ $b->judul_buku }} — {{ $b->penulis }} (Stok: {{ $b->stok }})
+                                            data-judul="{{ $b->judul_buku }}"
+                                            data-penulis="{{ $b->penulis }}"
+                                            data-stok="{{ $b->stok }}">
+                                        {{ $b->judul_buku }} - {{ $b->penulis }} (ID: {{ $b->id }})
                                     </option>
                                 @endforeach
                             </select>
-                            <small class="text-muted d-block mt-1">Gunakan Ctrl (Windows) atau Cmd (Mac) untuk memilih beberapa buku.</small>
+
+                            <small class="text-muted d-block mt-1">Ketik judul buku untuk mencari. Pilih maksimal 3 buku.</small>
                             @error('book_ids')<div class="ferr">{{ $message }}</div>@enderror
-                            @error('book_ids.*')<div class="ferr">{{ $message }}</div>@enderror
                         </div>
 
                         <div class="col-12 col-md-6">
-                            <label class="flbl">Tanggal Pinjam <span style="color:var(--red)">*</span></label>
+                            <label class="flbl">Tanggal Pinjam <span class="text-danger">*</span></label>
                             <input type="date" name="tanggal_pinjam" value="{{ old('tanggal_pinjam', date('Y-m-d')) }}" class="fctrl">
                             @error('tanggal_pinjam')<div class="ferr">{{ $message }}</div>@enderror
                         </div>
                         <div class="col-12 col-md-6">
-                            <label class="flbl">Tanggal Kembali Rencana <span style="color:var(--red)">*</span></label>
+                            <label class="flbl">Tanggal Kembali Rencana <span class="text-danger">*</span></label>
                             <input type="date" name="tanggal_kembali_rencana" value="{{ old('tanggal_kembali_rencana', date('Y-m-d', strtotime('+7 days'))) }}" class="fctrl">
                             @error('tanggal_kembali_rencana')<div class="ferr">{{ $message }}</div>@enderror
                         </div>
+
                         <div class="col-12">
                             <label class="flbl">Catatan (opsional)</label>
                             <textarea name="catatan" class="fctrl" rows="3" placeholder="Catatan khusus jika ada...">{{ old('catatan') }}</textarea>
                             @error('catatan')<div class="ferr">{{ $message }}</div>@enderror
                         </div>
-                        <div class="col-12" style="background:rgba(201,168,76,.07);border-radius:8px;border:1px solid rgba(201,168,76,.15);padding:12px 14px;">
-                            <div class="d-flex gap-2">
-                                <i class="bi bi-info-circle-fill" style="color:var(--amber);flex-shrink:0;margin-top:2px;"></i>
-                                <div style="font-size:.8rem;color:var(--muted);">
-                                    Denda keterlambatan: <strong style="color:var(--amber);">Rp 1.000/hari</strong> setelah tanggal kembali rencana. Denda dihitung otomatis saat pengembalian diproses.<br>
-                                    <strong>Catatan:</strong> Setiap buku akan dicatat sebagai transaksi terpisah. Total pinjaman aktif anggota (termasuk yang akan dipinjam) maksimal <strong>3 buku</strong>.
-                                </div>
-                            </div>
+
+                        <div class="col-12 alert alert-secondary" style="background:rgba(201,168,76,.07); border:1px solid rgba(201,168,76,.15);">
+                            <i class="bi bi-info-circle-fill" style="color:var(--amber);"></i>
+                            Denda keterlambatan: <strong>Rp 1.000/hari</strong>. Maksimal 3 buku aktif per anggota.
                         </div>
-                        <div class="col-12 d-flex gap-2 mt-1">
+
+                        <div class="col-12 d-flex gap-2">
                             <button type="submit" class="btn-A"><i class="bi bi-check-lg"></i> Catat Peminjaman</button>
                             <a href="{{ route('admin.transaksi.index') }}" class="btn-G">Batal</a>
                         </div>
@@ -79,15 +115,77 @@
         </div>
     </div>
 </div>
+@endsection
 
-{{-- Optional: JavaScript untuk menampilkan jumlah pinjaman aktif saat anggota dipilih --}}
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
-    document.getElementById('user_id').addEventListener('change', function() {
-        // Jika ingin menampilkan sisa kuota secara realtime, bisa via AJAX
-        // Tidak wajib, hanya untuk UX.
+    $(document).ready(function() {
+        // Inisialisasi Select2
+        $('#book_ids').select2({
+            placeholder: "Ketik judul buku disini...",
+            allowClear: true,
+            width: '100%',
+            templateResult: formatBook, // Menggunakan kustom template saat dropdown terbuka
+            templateSelection: formatBookSelection // Menggunakan kustom template saat buku terpilih
+        });
+
+        // Format tampilan dropdown list buku
+        function formatBook(book) {
+            // Jika tidak ada data id (misal saat placeholder), kembalikan teks aslinya
+            if (!book.id) return book.text;
+
+            // Ambil data dari atribut data-* di tag option
+            var $element = $(book.element);
+            var judul = $element.data('judul');
+            var penulis = $element.data('penulis');
+            var stok = $element.data('stok');
+
+            // Set warna badge stok berdasarkan ketersediaan
+            var stokBadgeClass = stok > 0 ? 'bg-success' : 'bg-danger';
+
+            // Bangun tampilan HTML untuk setiap baris buku
+            var $book = $(
+                '<div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">' +
+                    '<div>' +
+                        '<strong class="d-block text-dark">' + judul + '</strong>' +
+                        '<small class="text-muted"><i class="bi bi-person"></i> ' + penulis + '</small>' +
+                    '</div>' +
+                    '<div>' +
+                        '<span class="badge ' + stokBadgeClass + '">Stok: ' + stok + '</span>' +
+                    '</div>' +
+                '</div>'
+            );
+            return $book;
+        }
+
+        // Format tampilan buku yang sudah di-klik/dipilih
+        function formatBookSelection(book) {
+            if (!book.id) return book.text;
+            var $element = $(book.element);
+            return $element.data('judul'); // Hanya tampilkan judulnya saja biar ringkas di dalam box
+        }
+
+        // Batasi maksimal 3 pilihan
+        $('#book_ids').on('select2:select', function(e) {
+            var selected = $('#book_ids').val() || [];
+            if (selected.length > 3) {
+                alert('Maksimal meminjam 3 buku.');
+                $(this).val(selected.slice(0,3)).trigger('change');
+            }
+        });
+
+        // Validasi sebelum form di-submit
+        $('#pinjamForm').on('submit', function(e) {
+            var selected = $('#book_ids').val() || [];
+            if (selected.length === 0) {
+                e.preventDefault();
+                alert('Silakan pilih minimal 1 buku.');
+            } else if (selected.length > 3) {
+                e.preventDefault();
+                alert('Maksimal 3 buku.');
+            }
+        });
     });
 </script>
 @endpush
-
-@endsection
