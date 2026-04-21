@@ -54,9 +54,11 @@ class PeminjamanController extends Controller
         $request->validate([
             'book_ids' => 'required|array|min:1',
             'book_ids.*' => 'exists:books,id',
+            'durasi'   => 'required|in:1,3,7',
         ], [
             'book_ids.required' => 'Pilih minimal 1 buku.',
             'book_ids.min' => 'Pilih minimal 1 buku.',
+            'durasi.required' => 'Pilih durasi peminjaman.',
         ]);
 
         $user = Auth::user();
@@ -73,6 +75,9 @@ class PeminjamanController extends Controller
         if ($totalSetelah > 3) {
             return back()->with('error', "Kamu sudah memiliki {$pinjamanAktifSaatIni} pinjaman aktif. Maksimal 3 buku, tidak bisa meminjam {$jumlahBukuBaru} buku sekaligus.");
         }
+
+        $tanggalPinjam = Carbon::today();
+        $tanggalKembali = $tanggalPinjam->copy()->addDays($request->durasi);
 
         $transaksiTersimpan = [];
         $errors = [];
@@ -98,9 +103,6 @@ class PeminjamanController extends Controller
             }
 
             // Buat transaksi
-            $tanggalPinjam = Carbon::today();
-            $tanggalKembali = $tanggalPinjam->copy()->addDays(7);
-
             $transaksi = Transaction::create([
                 'user_id'                 => $user->id,
                 'book_id'                 => $buku->id,

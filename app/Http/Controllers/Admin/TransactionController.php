@@ -58,7 +58,7 @@ class TransactionController extends Controller
             $bookQuery->where(function ($q) use ($search) {
                 $q->where('judul_buku', 'like', "%{$search}%")
                   ->orWhere('penulis', 'like', "%{$search}%")
-                  ->orWhere('id', $search);  // pencarian berdasarkan ID buku
+                  ->orWhere('id', $search);
             });
         }
 
@@ -78,15 +78,15 @@ class TransactionController extends Controller
             'book_ids'                => 'required|array|min:1',
             'book_ids.*'              => 'exists:books,id',
             'tanggal_pinjam'          => 'required|date',
-            'tanggal_kembali_rencana' => 'required|date|after:tanggal_pinjam',
+            'durasi'                  => 'required|in:1,3,7', // 1 hari, 3 hari, 7 hari
             'catatan'                 => 'nullable|string|max:500',
         ], [
             'user_id.required'                 => 'Anggota wajib dipilih.',
             'book_ids.required'                => 'Pilih minimal 1 buku.',
             'book_ids.*.exists'                => 'Buku yang dipilih tidak valid.',
             'tanggal_pinjam.required'          => 'Tanggal pinjam wajib diisi.',
-            'tanggal_kembali_rencana.required' => 'Tanggal kembali wajib diisi.',
-            'tanggal_kembali_rencana.after'    => 'Tanggal kembali harus setelah tanggal pinjam.',
+            'durasi.required'                  => 'Durasi peminjaman wajib dipilih.',
+            'durasi.in'                        => 'Durasi tidak valid.',
         ]);
 
         $userId = $validated['user_id'];
@@ -103,6 +103,10 @@ class TransactionController extends Controller
         if ($totalSetelah > 3) {
             return back()->with('error', "Anggota ini sudah memiliki {$pinjamanAktifSaatIni} pinjaman aktif. Maksimal 3 buku, tidak bisa meminjam {$jumlahBukuBaru} buku sekaligus.");
         }
+
+        // Hitung tanggal kembali berdasarkan durasi
+        $tanggalPinjam = Carbon::parse($validated['tanggal_pinjam']);
+        $tanggalKembali = $tanggalPinjam->copy()->addDays($validated['durasi']);
 
         $transaksiTersimpan = [];
         $errors = [];
@@ -131,8 +135,8 @@ class TransactionController extends Controller
             $transaksi = Transaction::create([
                 'user_id'                 => $userId,
                 'book_id'                 => $bookId,
-                'tanggal_pinjam'          => $validated['tanggal_pinjam'],
-                'tanggal_kembali_rencana' => $validated['tanggal_kembali_rencana'],
+                'tanggal_pinjam'          => $tanggalPinjam,
+                'tanggal_kembali_rencana' => $tanggalKembali,
                 'catatan'                 => $validated['catatan'] ?? null,
                 'status'                  => 'dipinjam',
             ]);

@@ -10,7 +10,7 @@
     <i class="bi bi-info-circle-fill" style="color:var(--amber);flex-shrink:0;margin-top:2px;"></i>
     <div style="color:var(--muted);">
         Maks. <strong style="color:var(--cream);">3 buku</strong> aktif sekaligus &middot;
-        Durasi pinjam <strong style="color:var(--cream);">7 hari</strong> &middot;
+        Durasi pinjam <strong style="color:var(--cream);">pilih 1 hari, 3 hari, atau 1 minggu</strong> &middot;
         Denda <strong style="color:var(--cream);">Rp 1.000/hari</strong> keterlambatan
         <br>
         <span>Sisa kuota pinjaman: <strong style="color:var(--amber);">{{ $sisa_kuota }}</strong> dari 3 buku</span>
@@ -30,7 +30,7 @@
     @endif
 </form>
 
-{{-- FORM PEMINJAMAN MULTI-BUKU (LIST/TABLE) --}}
+{{-- FORM PEMINJAMAN MULTI-BUKU --}}
 <form action="{{ route('siswa.peminjaman.store') }}" method="POST" id="multiPinjamForm">
     @csrf
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -45,6 +45,18 @@
         <button type="submit" class="btn-A" id="submitPinjam" {{ $sisa_kuota <= 0 ? 'disabled' : '' }}>
             <i class="bi bi-bookmark-plus"></i> Pinjam Terpilih
         </button>
+    </div>
+
+    {{-- DURASI PEMINJAMAN --}}
+    <div class="mb-3">
+        <label class="flbl">Durasi Peminjaman</label>
+        <select name="durasi" class="fctrl" required>
+            <option value="1">1 hari (kembali besok)</option>
+            <option value="3">3 hari</option>
+            <option value="7" selected>1 minggu (7 hari)</option>
+        </select>
+        <small class="text-muted">Tanggal kembali akan dihitung otomatis berdasarkan durasi yang dipilih.</small>
+        @error('durasi')<div class="ferr">{{ $message }}</div>@enderror
     </div>
 
     @if($buku->count())
@@ -161,12 +173,10 @@
         }
     }
 
-    // Event untuk setiap checkbox
     checkboxes.forEach(cb => {
         cb.addEventListener('change', limitCheckboxSelection);
     });
 
-    // Master checkbox (pilih semua)
     masterCheckbox.addEventListener('change', function(e) {
         const isChecked = e.target.checked;
         let count = 0;
@@ -185,7 +195,6 @@
         masterCheckbox.indeterminate = false;
     });
 
-    // Tombol Pilih Semua (paksa pilih sampai sisa kuota)
     selectAllBtn.addEventListener('click', function() {
         let count = 0;
         checkboxes.forEach(cb => {
@@ -203,14 +212,12 @@
         }
     });
 
-    // Tombol Batal Pilih
     deselectAllBtn.addEventListener('click', function() {
         checkboxes.forEach(cb => cb.checked = false);
         updateSubmitButton();
         updateMasterCheckbox();
     });
 
-    // Submit form validation
     document.getElementById('multiPinjamForm').addEventListener('submit', function(e) {
         const checkedCount = document.querySelectorAll('.book-checkbox:checked').length;
         if (checkedCount === 0) {
@@ -222,7 +229,6 @@
         }
     });
 
-    // Inisialisasi
     updateSubmitButton();
 </script>
 @endpush

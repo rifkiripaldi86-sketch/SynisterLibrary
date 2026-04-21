@@ -3,14 +3,12 @@
 @section('title', 'Catat Peminjaman — Synister Library')
 @section('page-title', 'Catat Peminjaman')
 
-{{-- Tambahkan push styles untuk CSS Select2 --}}
 @push('styles')
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <style>
-    /* Penyesuaian UI Select2 agar senada dengan form control */
     .select2-container .select2-selection--multiple {
         min-height: 42px;
-        border: 1px solid #ced4da; /* Sesuaikan dengan border .fctrl Anda */
+        border: 1px solid #ced4da;
         border-radius: 6px;
         padding: 4px;
     }
@@ -32,7 +30,6 @@
         background-color: transparent;
         color: #ffd700;
     }
-    /* Memastikan input pencarian membentang penuh */
     .select2-search__field {
         width: 100% !important;
     }
@@ -67,7 +64,6 @@
 
                         <div class="col-12">
                             <label class="flbl">Pilih Buku (Ketik judul buku, bisa lebih dari 1) <span class="text-danger">*</span></label>
-
                             <select name="book_ids[]" id="book_ids" class="fctrl" multiple="multiple" style="width:100%" required>
                                 @foreach($buku as $b)
                                     <option value="{{ $b->id }}"
@@ -78,7 +74,6 @@
                                     </option>
                                 @endforeach
                             </select>
-
                             <small class="text-muted d-block mt-1">Ketik judul buku untuk mencari. Pilih maksimal 3 buku.</small>
                             @error('book_ids')<div class="ferr">{{ $message }}</div>@enderror
                         </div>
@@ -88,10 +83,16 @@
                             <input type="date" name="tanggal_pinjam" value="{{ old('tanggal_pinjam', date('Y-m-d')) }}" class="fctrl">
                             @error('tanggal_pinjam')<div class="ferr">{{ $message }}</div>@enderror
                         </div>
+
                         <div class="col-12 col-md-6">
-                            <label class="flbl">Tanggal Kembali Rencana <span class="text-danger">*</span></label>
-                            <input type="date" name="tanggal_kembali_rencana" value="{{ old('tanggal_kembali_rencana', date('Y-m-d', strtotime('+7 days'))) }}" class="fctrl">
-                            @error('tanggal_kembali_rencana')<div class="ferr">{{ $message }}</div>@enderror
+                            <label class="flbl">Durasi Peminjaman <span class="text-danger">*</span></label>
+                            <select name="durasi" class="fctrl" required>
+                                <option value="1" {{ old('durasi') == 1 ? 'selected' : '' }}>1 hari (kembali besok)</option>
+                                <option value="3" {{ old('durasi') == 3 ? 'selected' : '' }}>3 hari</option>
+                                <option value="7" {{ old('durasi') == 7 ? 'selected' : '' }} selected>1 minggu (7 hari)</option>
+                            </select>
+                            <small class="text-muted">Tanggal kembali akan dihitung otomatis.</small>
+                            @error('durasi')<div class="ferr">{{ $message }}</div>@enderror
                         </div>
 
                         <div class="col-12">
@@ -121,30 +122,21 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
     $(document).ready(function() {
-        // Inisialisasi Select2
         $('#book_ids').select2({
             placeholder: "Ketik judul buku disini...",
             allowClear: true,
             width: '100%',
-            templateResult: formatBook, // Menggunakan kustom template saat dropdown terbuka
-            templateSelection: formatBookSelection // Menggunakan kustom template saat buku terpilih
+            templateResult: formatBook,
+            templateSelection: formatBookSelection
         });
 
-        // Format tampilan dropdown list buku
         function formatBook(book) {
-            // Jika tidak ada data id (misal saat placeholder), kembalikan teks aslinya
             if (!book.id) return book.text;
-
-            // Ambil data dari atribut data-* di tag option
             var $element = $(book.element);
             var judul = $element.data('judul');
             var penulis = $element.data('penulis');
             var stok = $element.data('stok');
-
-            // Set warna badge stok berdasarkan ketersediaan
             var stokBadgeClass = stok > 0 ? 'bg-success' : 'bg-danger';
-
-            // Bangun tampilan HTML untuk setiap baris buku
             var $book = $(
                 '<div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">' +
                     '<div>' +
@@ -159,14 +151,12 @@
             return $book;
         }
 
-        // Format tampilan buku yang sudah di-klik/dipilih
         function formatBookSelection(book) {
             if (!book.id) return book.text;
             var $element = $(book.element);
-            return $element.data('judul'); // Hanya tampilkan judulnya saja biar ringkas di dalam box
+            return $element.data('judul');
         }
 
-        // Batasi maksimal 3 pilihan
         $('#book_ids').on('select2:select', function(e) {
             var selected = $('#book_ids').val() || [];
             if (selected.length > 3) {
@@ -175,7 +165,6 @@
             }
         });
 
-        // Validasi sebelum form di-submit
         $('#pinjamForm').on('submit', function(e) {
             var selected = $('#book_ids').val() || [];
             if (selected.length === 0) {
