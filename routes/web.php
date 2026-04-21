@@ -50,6 +50,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
     Route::get('/search',    [AdminDashboardController::class, 'search'])->name('search');
 
+    Route::get('/cek-overdue', [AdminTransactionController::class, 'cekOverdue'])->name('cek-overdue');
+
     // ✅ FIX #2: Route custom 'kembalikan' didaftarkan SEBELUM Route::resource()
     // agar tidak terjadi konflik parameter binding dengan route resource bawaan Laravel.
     // Jika didaftarkan sesudah, Laravel bisa salah memetakan {transaksi}/kembalikan

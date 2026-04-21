@@ -33,6 +33,15 @@
     .select2-search__field {
         width: 100% !important;
     }
+    .overdue-warning {
+        background: rgba(224,90,90,.1);
+        border-left: 3px solid #e05a5a;
+        padding: 10px 15px;
+        border-radius: 6px;
+        margin-top: 8px;
+        font-size: 0.85rem;
+        color: #e05a5a;
+    }
 </style>
 @endpush
 
@@ -60,6 +69,10 @@
                                 @endforeach
                             </select>
                             @error('user_id')<div class="ferr">{{ $message }}</div>@enderror
+                            <div id="overdueWarning" class="overdue-warning" style="display: none;">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                Anggota ini memiliki buku yang terlambat dan belum dikembalikan. Tidak dapat meminjamkan buku baru sampai buku tersebut dikembalikan.
+                            </div>
                         </div>
 
                         <div class="col-12">
@@ -107,7 +120,7 @@
                         </div>
 
                         <div class="col-12 d-flex gap-2">
-                            <button type="submit" class="btn-A"><i class="bi bi-check-lg"></i> Catat Peminjaman</button>
+                            <button type="submit" class="btn-A" id="submitBtn"><i class="bi bi-check-lg"></i> Catat Peminjaman</button>
                             <a href="{{ route('admin.transaksi.index') }}" class="btn-G">Batal</a>
                         </div>
                     </div>
@@ -122,6 +135,7 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
     $(document).ready(function() {
+        // Inisialisasi Select2
         $('#book_ids').select2({
             placeholder: "Ketik judul buku disini...",
             allowClear: true,
@@ -137,7 +151,7 @@
             var penulis = $element.data('penulis');
             var stok = $element.data('stok');
             var stokBadgeClass = stok > 0 ? 'bg-success' : 'bg-danger';
-            var $book = $(
+            return $(
                 '<div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">' +
                     '<div>' +
                         '<strong class="d-block text-dark">' + judul + '</strong>' +
@@ -148,7 +162,6 @@
                     '</div>' +
                 '</div>'
             );
-            return $book;
         }
 
         function formatBookSelection(book) {
@@ -157,6 +170,7 @@
             return $element.data('judul');
         }
 
+        // Batasi maksimal 3 buku
         $('#book_ids').on('select2:select', function(e) {
             var selected = $('#book_ids').val() || [];
             if (selected.length > 3) {
@@ -165,6 +179,44 @@
             }
         });
 
+        // AJAX Cek Overdue saat anggota dipilih
+        const userSelect = $('#user_id');
+        const overdueWarning = $('#overdueWarning');
+        const submitBtn = $('#submitBtn');
+
+        userSelect.on('change', function() {
+            var userId = $(this).val();
+            if (userId) {
+                $.ajax({
+                    url: '{{ route("admin.cek-overdue") }}',
+                    type: 'GET',
+                    data: { user_id: userId },
+                    success: function(res) {
+                        if (res.has_overdue) {
+                            overdueWarning.show();
+                            submitBtn.prop('disabled', true);
+                        } else {
+                            overdueWarning.hide();
+                            submitBtn.prop('disabled', false);
+                        }
+                    },
+                    error: function() {
+                        overdueWarning.hide();
+                        submitBtn.prop('disabled', false);
+                    }
+                });
+            } else {
+                overdueWarning.hide();
+                submitBtn.prop('disabled', false);
+            }
+        });
+
+        // Trigger change jika ada old value
+        if (userSelect.val()) {
+            userSelect.trigger('change');
+        }
+
+        // Validasi submit
         $('#pinjamForm').on('submit', function(e) {
             var selected = $('#book_ids').val() || [];
             if (selected.length === 0) {
@@ -173,6 +225,9 @@
             } else if (selected.length > 3) {
                 e.preventDefault();
                 alert('Maksimal 3 buku.');
+            } else if (submitBtn.prop('disabled')) {
+                e.preventDefault();
+                alert('Anggota memiliki buku terlambat, tidak bisa meminjamkan buku baru.');
             }
         });
     });

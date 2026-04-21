@@ -12,10 +12,13 @@ use Illuminate\Support\Facades\Auth;
 class PeminjamanController extends Controller
 {
     /**
-     * Tampilkan form pilih buku (dengan checkbox multi-pilih).
+     * Tampilkan form pilih buku.
      */
     public function createPeminjaman(Request $request)
     {
+        // Cek apakah siswa memiliki buku terlambat
+        $hasOverdue = Auth::user()->hasOverdueLoan();
+
         $query = Book::with('category')->where('stok', '>', 0);
 
         if ($request->filled('search')) {
@@ -29,7 +32,6 @@ class PeminjamanController extends Controller
             });
         }
 
-        // ID buku yang sedang dipinjam (aktif) oleh siswa ini
         $sedang_dipinjam = Transaction::where('user_id', Auth::id())
             ->whereIn('status', ['dipinjam', 'terlambat'])
             ->pluck('book_id')
@@ -37,20 +39,24 @@ class PeminjamanController extends Controller
 
         $buku = $query->latest()->paginate(12)->withQueryString();
 
-        // Hitung sisa kuota pinjaman aktif
         $jumlahPinjamanAktif = Transaction::where('user_id', Auth::id())
             ->whereIn('status', ['dipinjam', 'terlambat'])
             ->count();
         $sisa_kuota = max(0, 3 - $jumlahPinjamanAktif);
 
-        return view('siswa.peminjaman.create', compact('buku', 'sedang_dipinjam', 'sisa_kuota'));
+        return view('siswa.peminjaman.create', compact('buku', 'sedang_dipinjam', 'sisa_kuota', 'hasOverdue'));
     }
 
     /**
-     * Proses peminjaman beberapa buku sekaligus.
+     * Proses peminjaman beberapa buku.
      */
     public function storePeminjaman(Request $request)
     {
+        // Cek apakah siswa memiliki buku terlambat
+        if (Auth::user()->hasOverdueLoan()) {
+            return back()->with('error', 'Anda memiliki buku yang terlambat dan belum dikembalikan. Harap kembalikan terlebih dahulu sebelum meminjam buku baru.');
+        }
+
         $request->validate([
             'book_ids' => 'required|array|min:1',
             'book_ids.*' => 'exists:books,id',
@@ -64,7 +70,6 @@ class PeminjamanController extends Controller
         $user = Auth::user();
         $bookIds = $request->book_ids;
 
-        // Hitung pinjaman aktif saat ini (belum termasuk yang akan dipinjam)
         $pinjamanAktifSaatIni = Transaction::where('user_id', $user->id)
             ->whereIn('status', ['dipinjam', 'terlambat'])
             ->count();
@@ -85,13 +90,11 @@ class PeminjamanController extends Controller
         foreach ($bookIds as $bookId) {
             $buku = Book::findOrFail($bookId);
 
-            // Cek stok
             if (!$buku->isAvailable()) {
                 $errors[] = "Buku '{$buku->judul_buku}' sedang habis stok.";
                 continue;
             }
 
-            // Cek apakah sudah meminjam buku yang sama
             $sudahPinjam = Transaction::where('user_id', $user->id)
                 ->where('book_id', $bookId)
                 ->whereIn('status', ['dipinjam', 'terlambat'])
@@ -102,7 +105,6 @@ class PeminjamanController extends Controller
                 continue;
             }
 
-            // Buat transaksi
             $transaksi = Transaction::create([
                 'user_id'                 => $user->id,
                 'book_id'                 => $buku->id,
@@ -128,7 +130,7 @@ class PeminjamanController extends Controller
     }
 
     /**
-     * Tampilkan daftar buku yang sedang dipinjam siswa.
+     * Tampilkan daftar buku yang sedang dipinjam.
      */
     public function createPengembalian()
     {

@@ -93,4 +93,15 @@ class User extends Authenticatable
     {
         return $this->unreadAppNotifications()->count();
     }
+
+    public function hasOverdueLoan(): bool
+    {
+        return Transaction::where('user_id', $this->id)
+            ->where('status', '!=', 'dikembalikan')
+            ->where(function ($query) {
+                $query->where('status', 'terlambat')
+                      ->orWhereDate('tanggal_kembali_rencana', '<', today());
+            })
+            ->exists();
+    }
 }

@@ -17,6 +17,14 @@
     </div>
 </div>
 
+{{-- ALERT JIKA ADA BUKU TERLAMBAT --}}
+@if($hasOverdue)
+<div class="alert alert-danger mb-4" style="background:rgba(224,90,90,.15); border-left:4px solid #e05a5a;">
+    <i class="bi bi-exclamation-octagon-fill me-2"></i>
+    <strong>Perhatian!</strong> Anda memiliki buku yang terlambat dan belum dikembalikan. Silakan kembalikan terlebih dahulu sebelum meminjam buku baru.
+</div>
+@endif
+
 {{-- SEARCH --}}
 <form action="{{ route('siswa.peminjaman.create') }}" method="GET" class="d-flex gap-2 mb-4">
     <div style="position:relative;flex:1;">
@@ -35,14 +43,14 @@
     @csrf
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <button type="button" id="selectAllBtn" class="btn-oA" style="padding:4px 12px;font-size:.8rem;">
+            <button type="button" id="selectAllBtn" class="btn-oA" style="padding:4px 12px;font-size:.8rem;" {{ $hasOverdue ? 'disabled' : '' }}>
                 <i class="bi bi-check-all"></i> Pilih Semua
             </button>
-            <button type="button" id="deselectAllBtn" class="btn-oA" style="padding:4px 12px;font-size:.8rem;">
+            <button type="button" id="deselectAllBtn" class="btn-oA" style="padding:4px 12px;font-size:.8rem;" {{ $hasOverdue ? 'disabled' : '' }}>
                 <i class="bi bi-x-circle"></i> Batal Pilih
             </button>
         </div>
-        <button type="submit" class="btn-A" id="submitPinjam" {{ $sisa_kuota <= 0 ? 'disabled' : '' }}>
+        <button type="submit" class="btn-A" id="submitPinjam" {{ $sisa_kuota <= 0 || $hasOverdue ? 'disabled' : '' }}>
             <i class="bi bi-bookmark-plus"></i> Pinjam Terpilih
         </button>
     </div>
@@ -50,7 +58,7 @@
     {{-- DURASI PEMINJAMAN --}}
     <div class="mb-3">
         <label class="flbl">Durasi Peminjaman</label>
-        <select name="durasi" class="fctrl" required>
+        <select name="durasi" class="fctrl" required {{ $hasOverdue ? 'disabled' : '' }}>
             <option value="1">1 hari (kembali besok)</option>
             <option value="3">3 hari</option>
             <option value="7" selected>1 minggu (7 hari)</option>
@@ -65,7 +73,7 @@
             <table class="tbl">
                 <thead>
                     <tr>
-                        <th style="width:40px;"><input type="checkbox" id="checkboxMaster" style="width:18px;height:18px;"></th>
+                        <th style="width:40px;"><input type="checkbox" id="checkboxMaster" style="width:18px;height:18px;" {{ $hasOverdue ? 'disabled' : '' }}></th>
                         <th>Cover</th>
                         <th>Judul Buku</th>
                         <th>Penulis</th>
@@ -82,7 +90,8 @@
                                    class="book-checkbox"
                                    style="width:18px;height:18px;cursor:pointer;"
                                    {{ in_array($b->id, $sedang_dipinjam) ? 'disabled' : '' }}
-                                   {{ $sisa_kuota <= 0 && !in_array($b->id, $sedang_dipinjam) ? 'disabled' : '' }}>
+                                   {{ $sisa_kuota <= 0 && !in_array($b->id, $sedang_dipinjam) ? 'disabled' : '' }}
+                                   {{ $hasOverdue ? 'disabled' : '' }}>
                         </td>
                         <td style="width:50px;">
                             <div style="width:40px;height:55px;background:var(--navy3);border-radius:4px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
@@ -134,101 +143,110 @@
 @push('scripts')
 <script>
     const sisaKuota = {{ $sisa_kuota }};
+    const hasOverdue = {{ $hasOverdue ? 'true' : 'false' }};
     const checkboxes = document.querySelectorAll('.book-checkbox:not(:disabled)');
     const submitBtn = document.getElementById('submitPinjam');
     const selectAllBtn = document.getElementById('selectAllBtn');
     const deselectAllBtn = document.getElementById('deselectAllBtn');
     const masterCheckbox = document.getElementById('checkboxMaster');
 
-    function updateSubmitButton() {
-        const checkedCount = document.querySelectorAll('.book-checkbox:checked').length;
-        submitBtn.disabled = (checkedCount === 0);
-    }
-
-    function limitCheckboxSelection(e) {
-        const checkedCount = document.querySelectorAll('.book-checkbox:checked').length;
-        if (checkedCount > sisaKuota) {
-            e.target.checked = false;
-            alert(`Kamu hanya bisa meminjam maksimal ${sisaKuota} buku lagi (sisa kuota).`);
+    // Jika hasOverdue true, semua sudah disabled, script tidak perlu berjalan
+    if (!hasOverdue) {
+        function updateSubmitButton() {
+            const checkedCount = document.querySelectorAll('.book-checkbox:checked').length;
+            submitBtn.disabled = (checkedCount === 0);
         }
-        updateSubmitButton();
-        updateMasterCheckbox();
-    }
 
-    function updateMasterCheckbox() {
-        const allCheckboxes = document.querySelectorAll('.book-checkbox:not(:disabled)');
-        const checkedBoxes = document.querySelectorAll('.book-checkbox:checked');
-        if (allCheckboxes.length === 0) {
-            masterCheckbox.checked = false;
-            masterCheckbox.indeterminate = false;
-        } else if (checkedBoxes.length === allCheckboxes.length) {
-            masterCheckbox.checked = true;
-            masterCheckbox.indeterminate = false;
-        } else if (checkedBoxes.length > 0) {
-            masterCheckbox.checked = false;
-            masterCheckbox.indeterminate = true;
-        } else {
-            masterCheckbox.checked = false;
-            masterCheckbox.indeterminate = false;
+        function limitCheckboxSelection(e) {
+            const checkedCount = document.querySelectorAll('.book-checkbox:checked').length;
+            if (checkedCount > sisaKuota) {
+                e.target.checked = false;
+                alert(`Kamu hanya bisa meminjam maksimal ${sisaKuota} buku lagi (sisa kuota).`);
+            }
+            updateSubmitButton();
+            updateMasterCheckbox();
         }
-    }
 
-    checkboxes.forEach(cb => {
-        cb.addEventListener('change', limitCheckboxSelection);
-    });
-
-    masterCheckbox.addEventListener('change', function(e) {
-        const isChecked = e.target.checked;
-        let count = 0;
-        checkboxes.forEach(cb => {
-            if (isChecked && count < sisaKuota) {
-                cb.checked = true;
-                count++;
+        function updateMasterCheckbox() {
+            const allCheckboxes = document.querySelectorAll('.book-checkbox:not(:disabled)');
+            const checkedBoxes = document.querySelectorAll('.book-checkbox:checked');
+            if (allCheckboxes.length === 0) {
+                masterCheckbox.checked = false;
+                masterCheckbox.indeterminate = false;
+            } else if (checkedBoxes.length === allCheckboxes.length) {
+                masterCheckbox.checked = true;
+                masterCheckbox.indeterminate = false;
+            } else if (checkedBoxes.length > 0) {
+                masterCheckbox.checked = false;
+                masterCheckbox.indeterminate = true;
             } else {
-                cb.checked = false;
+                masterCheckbox.checked = false;
+                masterCheckbox.indeterminate = false;
+            }
+        }
+
+        checkboxes.forEach(cb => {
+            cb.addEventListener('change', limitCheckboxSelection);
+        });
+
+        masterCheckbox.addEventListener('change', function(e) {
+            const isChecked = e.target.checked;
+            let count = 0;
+            checkboxes.forEach(cb => {
+                if (isChecked && count < sisaKuota) {
+                    cb.checked = true;
+                    count++;
+                } else {
+                    cb.checked = false;
+                }
+            });
+            updateSubmitButton();
+            if (isChecked && sisaKuota > 0 && checkboxes.length > sisaKuota) {
+                alert(`Hanya ${sisaKuota} buku yang dipilih karena sisa kuota.`);
+            }
+            masterCheckbox.indeterminate = false;
+        });
+
+        selectAllBtn.addEventListener('click', function() {
+            let count = 0;
+            checkboxes.forEach(cb => {
+                if (count < sisaKuota) {
+                    cb.checked = true;
+                    count++;
+                } else {
+                    cb.checked = false;
+                }
+            });
+            updateSubmitButton();
+            updateMasterCheckbox();
+            if (sisaKuota > 0 && checkboxes.length > sisaKuota) {
+                alert(`Hanya ${sisaKuota} buku yang dipilih karena sisa kuota.`);
             }
         });
-        updateSubmitButton();
-        if (isChecked && sisaKuota > 0 && checkboxes.length > sisaKuota) {
-            alert(`Hanya ${sisaKuota} buku yang dipilih karena sisa kuota.`);
-        }
-        masterCheckbox.indeterminate = false;
-    });
 
-    selectAllBtn.addEventListener('click', function() {
-        let count = 0;
-        checkboxes.forEach(cb => {
-            if (count < sisaKuota) {
-                cb.checked = true;
-                count++;
-            } else {
-                cb.checked = false;
+        deselectAllBtn.addEventListener('click', function() {
+            checkboxes.forEach(cb => cb.checked = false);
+            updateSubmitButton();
+            updateMasterCheckbox();
+        });
+
+        document.getElementById('multiPinjamForm').addEventListener('submit', function(e) {
+            const checkedCount = document.querySelectorAll('.book-checkbox:checked').length;
+            if (checkedCount === 0) {
+                e.preventDefault();
+                alert('Pilih minimal 1 buku.');
+            } else if (checkedCount > sisaKuota) {
+                e.preventDefault();
+                alert(`Kamu hanya bisa meminjam maksimal ${sisaKuota} buku.`);
             }
         });
+
         updateSubmitButton();
-        updateMasterCheckbox();
-        if (sisaKuota > 0 && checkboxes.length > sisaKuota) {
-            alert(`Hanya ${sisaKuota} buku yang dipilih karena sisa kuota.`);
-        }
-    });
-
-    deselectAllBtn.addEventListener('click', function() {
-        checkboxes.forEach(cb => cb.checked = false);
-        updateSubmitButton();
-        updateMasterCheckbox();
-    });
-
-    document.getElementById('multiPinjamForm').addEventListener('submit', function(e) {
-        const checkedCount = document.querySelectorAll('.book-checkbox:checked').length;
-        if (checkedCount === 0) {
-            e.preventDefault();
-            alert('Pilih minimal 1 buku.');
-        } else if (checkedCount > sisaKuota) {
-            e.preventDefault();
-            alert(`Kamu hanya bisa meminjam maksimal ${sisaKuota} buku.`);
-        }
-    });
-
-    updateSubmitButton();
+    } else {
+        // Jika overdue, disable semua tombol pilih
+        if (selectAllBtn) selectAllBtn.disabled = true;
+        if (deselectAllBtn) deselectAllBtn.disabled = true;
+        if (masterCheckbox) masterCheckbox.disabled = true;
+    }
 </script>
 @endpush

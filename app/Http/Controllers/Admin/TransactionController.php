@@ -17,7 +17,6 @@ class TransactionController extends Controller
      */
     public function index(Request $request)
     {
-        // Update status terlambat
         Transaction::where('status', 'dipinjam')
             ->whereDate('tanggal_kembali_rencana', '<', today())
             ->update(['status' => 'terlambat']);
@@ -43,14 +42,12 @@ class TransactionController extends Controller
     }
 
     /**
-     * Form catat peminjaman baru (oleh admin) - bisa pilih banyak buku.
-     * Mendukung pencarian buku via parameter 'search' (ID, judul, penulis).
+     * Form catat peminjaman baru.
      */
     public function create(Request $request)
     {
         $anggota = User::where('role', 'siswa')->orderBy('name')->get();
 
-        // Query buku dengan stok > 0, bisa difilter berdasarkan pencarian
         $bookQuery = Book::where('stok', '>', 0)->orderBy('judul_buku');
 
         if ($request->filled('search')) {
@@ -68,8 +65,7 @@ class TransactionController extends Controller
     }
 
     /**
-     * Simpan peminjaman untuk 1 atau lebih buku sekaligus.
-     * Maksimal total pinjaman aktif (termasuk yang akan dipinjam) = 3 buku.
+     * Simpan peminjaman.
      */
     public function store(Request $request)
     {
@@ -78,7 +74,7 @@ class TransactionController extends Controller
             'book_ids'                => 'required|array|min:1',
             'book_ids.*'              => 'exists:books,id',
             'tanggal_pinjam'          => 'required|date',
-            'durasi'                  => 'required|in:1,3,7', // 1 hari, 3 hari, 7 hari
+            'durasi'                  => 'required|in:1,3,7',
             'catatan'                 => 'nullable|string|max:500',
         ], [
             'user_id.required'                 => 'Anggota wajib dipilih.',
@@ -92,7 +88,12 @@ class TransactionController extends Controller
         $userId = $validated['user_id'];
         $bookIds = $validated['book_ids'];
 
-        // Hitung jumlah pinjaman aktif anggota saat ini (belum termasuk yg akan dipinjam)
+        // CEK APAKAH USER MEMILIKI BUKU TERLAMBAT
+        $user = User::find($userId);
+        if ($user && $user->hasOverdueLoan()) {
+            return back()->with('error', 'Anggota ini memiliki buku yang terlambat dan belum dikembalikan. Tidak dapat meminjamkan buku baru sampai buku tersebut dikembalikan.');
+        }
+
         $pinjamanAktifSaatIni = Transaction::where('user_id', $userId)
             ->whereIn('status', ['dipinjam', 'terlambat'])
             ->count();
@@ -104,7 +105,6 @@ class TransactionController extends Controller
             return back()->with('error', "Anggota ini sudah memiliki {$pinjamanAktifSaatIni} pinjaman aktif. Maksimal 3 buku, tidak bisa meminjam {$jumlahBukuBaru} buku sekaligus.");
         }
 
-        // Hitung tanggal kembali berdasarkan durasi
         $tanggalPinjam = Carbon::parse($validated['tanggal_pinjam']);
         $tanggalKembali = $tanggalPinjam->copy()->addDays($validated['durasi']);
 
@@ -114,13 +114,11 @@ class TransactionController extends Controller
         foreach ($bookIds as $bookId) {
             $buku = Book::findOrFail($bookId);
 
-            // Cek stok
             if (!$buku->isAvailable()) {
                 $errors[] = "Stok buku '{$buku->judul_buku}' habis!";
                 continue;
             }
 
-            // Cek apakah siswa sudah meminjam buku yang sama (belum dikembalikan)
             $sudahPinjam = Transaction::where('user_id', $userId)
                 ->where('book_id', $bookId)
                 ->whereIn('status', ['dipinjam', 'terlambat'])
@@ -131,7 +129,6 @@ class TransactionController extends Controller
                 continue;
             }
 
-            // Buat transaksi
             $transaksi = Transaction::create([
                 'user_id'                 => $userId,
                 'book_id'                 => $bookId,
@@ -159,6 +156,19 @@ class TransactionController extends Controller
     }
 
     /**
+     * AJAX: Cek apakah anggota memiliki buku terlambat.
+     */
+    public function cekOverdue(Request $request)
+    {
+        $userId = $request->user_id;
+        $user = User::find($userId);
+        if ($user) {
+            return response()->json(['has_overdue' => $user->hasOverdueLoan()]);
+        }
+        return response()->json(['has_overdue' => false]);
+    }
+
+    /**
      * Detail satu transaksi.
      */
     public function show(Transaction $transaksi)
@@ -168,7 +178,7 @@ class TransactionController extends Controller
     }
 
     /**
-     * Form edit transaksi (untuk koreksi data).
+     * Form edit transaksi.
      */
     public function edit(Transaction $transaksi)
     {
@@ -209,8 +219,7 @@ class TransactionController extends Controller
     }
 
     /**
-     * Proses pengembalian buku — route custom:
-     * POST /admin/transaksi/{transaksi}/kembalikan
+     * Proses pengembalian buku.
      */
     public function prosesPengembalian(Transaction $transaksi)
     {
