@@ -52,10 +52,6 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
     Route::get('/cek-overdue', [AdminTransactionController::class, 'cekOverdue'])->name('cek-overdue');
 
-    // ✅ FIX #2: Route custom 'kembalikan' didaftarkan SEBELUM Route::resource()
-    // agar tidak terjadi konflik parameter binding dengan route resource bawaan Laravel.
-    // Jika didaftarkan sesudah, Laravel bisa salah memetakan {transaksi}/kembalikan
-    // sebagai parameter resource biasa.
     Route::post('/transaksi/{transaksi}/kembalikan',
         [AdminTransactionController::class, 'prosesPengembalian']
     )->name('transaksi.kembalikan');
@@ -83,10 +79,6 @@ Route::middleware(['auth', 'role:siswa'])->prefix('siswa')->name('siswa.')->grou
     // Peminjaman
     Route::get('/peminjaman',  [PeminjamanController::class, 'createPeminjaman'])->name('peminjaman.create');
     Route::post('/peminjaman', [PeminjamanController::class, 'storePeminjaman'])->name('peminjaman.store');
-
-    // Pengembalian (jika diaktifkan nanti)
-    // Route::get('/pengembalian', [PeminjamanController::class, 'createPengembalian'])->name('pengembalian.create');
-    // Route::post('/pengembalian/{transaksi}', [PeminjamanController::class, 'storePengembalian'])->name('pengembalian.store');
 
     Route::get('/riwayat', [PeminjamanController::class, 'riwayat'])->name('riwayat');
 });
